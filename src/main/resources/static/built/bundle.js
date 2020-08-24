@@ -34187,7 +34187,7 @@ var DemoCertificate = /*#__PURE__*/function (_React$Component3) {
   _createClass(DemoCertificate, [{
     key: "render",
     value: function render() {
-      return /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certname), /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certsubjectdn));
+      return /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certName), /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certSubjectDN));
     }
   }]);
 

@@ -44,8 +44,8 @@ class DemoCertificate extends React.Component{
     render() {
         return (
             <tr>
-                <td>{this.props.democertificate.certname}</td>
-                <td>{this.props.democertificate.certsubjectdn}</td>
+                <td>{this.props.democertificate.certName}</td>
+                <td>{this.props.democertificate.certSubjectDN}</td>
             </tr>
         )
     }
