@@ -69,24 +69,23 @@
               <npmVersion>6.14.6</npmVersion>
             </configuration>
           </execution>
-
+          <!-- Don't exeucte npm install on every run, uncomment when adding any new packages. Also skip building UI.
           <execution>
             <id>npm install</id>
             <goals>
               <goal>npm</goal>
             </goals>
-            <!-- Optional configuration which provides for running any npm command -->
             <configuration>
               <arguments>install</arguments>
             </configuration>
           </execution>
-
           <execution>
             <id>webpack build</id>
             <goals>
               <goal>webpack</goal>
             </goals>
           </execution>
+          -->
         </executions>
       </plugin>
     </plugins>
