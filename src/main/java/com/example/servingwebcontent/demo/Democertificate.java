@@ -1,12 +1,18 @@
 package com.example.servingwebcontent.demo;
 
 import java.security.SecureRandom;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.Objects;
+import java.io.StringWriter;
+import java.math.BigInteger;
 
+import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.PrePersist;
+import java.security.cert.X509Certificate;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -65,6 +71,7 @@ import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
 import org.bouncycastle.crypto.util.PublicKeyFactory;
 import org.bouncycastle.crypto.util.SubjectPublicKeyInfoFactory;
 import org.bouncycastle.math.ec.ECCurve;
+import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.ContentVerifierProvider;
 import org.bouncycastle.operator.DefaultDigestAlgorithmIdentifierFinder;
@@ -87,20 +94,13 @@ public class Democertificate {
     private static Log log = LogFactory.getLog(Democertificate.class);
     private String certName;
     private String certSubjectDN;
+    @Column (length = 10000)
     private String certASN1;
-    @Transient
-    private AsymmetricKeyParameter pubkey;
-    @Transient
-    private AsymmetricKeyParameter privkey;
+    transient private AsymmetricKeyParameter pubkey;
+    transient private AsymmetricKeyParameter privkey;
 
-    private Democertificate() {
-        SecureRandom rand = new SecureRandom();
-        KeyGenerationParameters params = new KeyGenerationParameters(rand, 2048);
-        RSAKeyPairGenerator rkpg = new RSAKeyPairGenerator();
-        rkpg.init(params);
-        AsymmetricCipherKeyPair keypair = rkpg.generateKeyPair();
-        pubkey = keypair.getPublic();
-        privkey = keypair.getPrivate();
+    public Democertificate() {
+       
     }
 
     public Democertificate(String certName, String certSubjectDN) {
@@ -158,8 +158,43 @@ public class Democertificate {
 
     @PrePersist
     public void generateCertASN() {
-        this.certSubjectDN = this.certSubjectDN + ",C=US";
+         // https://github.com/bcgit/bc-java/blob/eb4b535f39048c6b0e2c9c14fd18b376453a63eb/pkix/src/test/java/org/bouncycastle/cert/test/BcCertTest.java#L525
+        SecureRandom rand = new SecureRandom();
+        RSAKeyGenerationParameters params = new RSAKeyGenerationParameters(BigInteger.valueOf(0x1001), rand, 2048, 25);
+        RSAKeyPairGenerator rkpg = new RSAKeyPairGenerator();
+        rkpg.init(params);
+        AsymmetricCipherKeyPair keypair = rkpg.generateKeyPair();
+        pubkey = keypair.getPublic();
+        privkey = keypair.getPrivate();
+        DefaultSignatureAlgorithmIdentifierFinder sigAlgFinder = new DefaultSignatureAlgorithmIdentifierFinder();
+        DefaultDigestAlgorithmIdentifierFinder digAlgFinder = new DefaultDigestAlgorithmIdentifierFinder();
+        HashMap<String,String> certDN = Utilities.parseCertSubjectDN(this.certSubjectDN);
         log.info(String.format("About to persist data %s",this.certSubjectDN));
+        X500NameBuilder builder = new X500NameBuilder(RFC4519Style.INSTANCE);
+        builder.addRDN(RFC4519Style.cn, certDN.get("CN"));
+        builder.addRDN(RFC4519Style.o, certDN.get("O"));
+        builder.addRDN(RFC4519Style.l, certDN.get("L"));
+        builder.addRDN(RFC4519Style.st, certDN.get("ST"));
+        builder.addRDN(RFC4519Style.c, certDN.get("C"));
+
+        AlgorithmIdentifier sigAlg = sigAlgFinder.find("SHA256WithRSAEncryption");
+        try{
+            ContentSigner sigGen = new BcRSAContentSignerBuilder(sigAlg, digAlgFinder.find(sigAlg)).build(this.privkey);
+            X509v3CertificateBuilder certGen = new BcX509v3CertificateBuilder(builder.build(), BigInteger.valueOf(1), new Date(System.currentTimeMillis() - 50000), new Date(System.currentTimeMillis() + 50000),builder.build(), this.pubkey);
+
+            X509CertificateHolder certH = certGen.build(sigGen);
+            X509Certificate cert = new JcaX509CertificateConverter().getCertificate(certH);
+            StringWriter sw = new StringWriter();
+            JcaPEMWriter pemWriter = new JcaPEMWriter(sw);
+            pemWriter.writeObject(cert);
+            pemWriter.flush();
+            this.certASN1 = sw.toString();
+            log.info(sw.toString());
+        
+        } catch(Exception e)
+        {
+            log.info("Got exception");
+        }
     }
 
     @Override

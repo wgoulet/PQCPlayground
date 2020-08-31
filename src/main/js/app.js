@@ -165,6 +165,7 @@ class DemoCertificateList extends React.Component{
                         <tr>
                             <th>Certificate Name</th>
                             <th>Certificate SubjectDN</th>
+                            <th>Signed Certificate</th>
                         </tr>
                         {democertificates}
                     </tbody>
@@ -191,6 +192,7 @@ class DemoCertificate extends React.Component{
             <tr>
                 <td>{this.props.democertificate.certName}</td>
                 <td>{this.props.democertificate.certSubjectDN}</td>
+                <td>{this.props.democertificate.certASN1}</td>
                 <td>
                     <button onClick={this.handleDelete}>Delete</button>
                 </td>
