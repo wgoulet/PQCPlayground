@@ -1,5 +1,6 @@
 package com.example.servingwebcontent.demo;
 
+import java.security.KeyPair;
 import java.security.SecureRandom;
 import java.util.Date;
 import java.util.HashMap;
@@ -24,6 +25,8 @@ import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.oiw.OIWObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
+import org.bouncycastle.asn1.pkcs.RSAPrivateKey;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.X500NameBuilder;
 import org.bouncycastle.asn1.x500.style.RFC4519Style;
@@ -68,10 +71,12 @@ import org.bouncycastle.crypto.params.ECPublicKeyParameters;
 import org.bouncycastle.crypto.params.RSAKeyGenerationParameters;
 import org.bouncycastle.crypto.params.RSAKeyParameters;
 import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
+import org.bouncycastle.crypto.util.PrivateKeyInfoFactory;
 import org.bouncycastle.crypto.util.PublicKeyFactory;
 import org.bouncycastle.crypto.util.SubjectPublicKeyInfoFactory;
 import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
+import org.bouncycastle.openssl.jcajce.JcaPKCS8Generator;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.ContentVerifierProvider;
 import org.bouncycastle.operator.DefaultDigestAlgorithmIdentifierFinder;
@@ -86,6 +91,8 @@ import org.bouncycastle.operator.bc.BcRSAContentVerifierProviderBuilder;
 import org.bouncycastle.util.Strings;
 import org.bouncycastle.util.encoders.Base64;
 import org.bouncycastle.util.encoders.Hex;
+import org.bouncycastle.util.io.pem.PemObject;
+import org.bouncycastle.util.io.pem.PemWriter;
 import org.springframework.data.annotation.Transient;
 
 @Entity
@@ -96,6 +103,8 @@ public class Democertificate {
     private String certSubjectDN;
     @Column (length = 10000)
     private String certASN1;
+    @Column (length = 10000)
+    private String certPrivateKey;
     transient private AsymmetricKeyParameter pubkey;
     transient private AsymmetricKeyParameter privkey;
 
@@ -156,6 +165,14 @@ public class Democertificate {
         return this.certASN1;
     }
 
+    public void setCertPrivateKey(String privateKey) {
+        this.certPrivateKey = privateKey;
+    }
+
+    public String getCertPrivateKey() {
+        return this.certPrivateKey;
+    }
+
     @PrePersist
     public void generateCertASN() {
          // https://github.com/bcgit/bc-java/blob/eb4b535f39048c6b0e2c9c14fd18b376453a63eb/pkix/src/test/java/org/bouncycastle/cert/test/BcCertTest.java#L525
@@ -190,10 +207,18 @@ public class Democertificate {
             pemWriter.flush();
             this.certASN1 = sw.toString();
             log.info(sw.toString());
+            PrivateKeyInfo privkeyinfo = PrivateKeyInfoFactory.createPrivateKeyInfo(privkey);
+            sw.close();
+            sw = new StringWriter();
+            pemWriter = new JcaPEMWriter(sw);
+            pemWriter.writeObject(privkeyinfo);
+            pemWriter.flush();
+            this.certPrivateKey = sw.toString();
+            log.info(sw.toString());
         
         } catch(Exception e)
         {
-            log.info("Got exception");
+            log.info("Got exception" + e.getMessage());
         }
     }
 

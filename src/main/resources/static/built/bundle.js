@@ -34352,7 +34352,7 @@ var DemoCertificateList = /*#__PURE__*/function (_React$Component2) {
         ref: "pageSize",
         defaultValue: this.props.pageSize,
         onInput: this.handleInput
-      }), /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Certificate Name"), /*#__PURE__*/React.createElement("th", null, "Certificate SubjectDN"), /*#__PURE__*/React.createElement("th", null, "Signed Certificate")), democertificates)), /*#__PURE__*/React.createElement("div", null, navLinks));
+      }), /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Certificate Name"), /*#__PURE__*/React.createElement("th", null, "Certificate SubjectDN"), /*#__PURE__*/React.createElement("th", null, "Signed Certificate"), /*#__PURE__*/React.createElement("th", null, "Private Key")), democertificates)), /*#__PURE__*/React.createElement("div", null, navLinks));
     }
   }]);
 
@@ -34382,7 +34382,7 @@ var DemoCertificate = /*#__PURE__*/function (_React$Component3) {
   }, {
     key: "render",
     value: function render() {
-      return /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certName), /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certSubjectDN), /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certASN1), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
+      return /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certName), /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certSubjectDN), /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certASN1), /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certPrivateKey), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
         onClick: this.handleDelete
       }, "Delete")));
     }
