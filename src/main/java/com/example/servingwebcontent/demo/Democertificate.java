@@ -88,6 +88,12 @@ import org.bouncycastle.operator.bc.BcECContentSignerBuilder;
 import org.bouncycastle.operator.bc.BcECContentVerifierProviderBuilder;
 import org.bouncycastle.operator.bc.BcRSAContentSignerBuilder;
 import org.bouncycastle.operator.bc.BcRSAContentVerifierProviderBuilder;
+import org.bouncycastle.pqc.crypto.rainbow.RainbowKeyGenerationParameters;
+import org.bouncycastle.pqc.crypto.rainbow.RainbowKeyPairGenerator;
+import org.bouncycastle.pqc.crypto.rainbow.RainbowParameters;
+import org.bouncycastle.pqc.crypto.mceliece.McElieceKeyGenerationParameters;
+import org.bouncycastle.pqc.crypto.mceliece.McElieceKeyPairGenerator;
+import org.bouncycastle.pqc.crypto.mceliece.McElieceParameters;
 import org.bouncycastle.util.Strings;
 import org.bouncycastle.util.encoders.Base64;
 import org.bouncycastle.util.encoders.Hex;
@@ -193,6 +199,19 @@ public class Democertificate {
         builder.addRDN(RFC4519Style.l, certDN.get("L"));
         builder.addRDN(RFC4519Style.st, certDN.get("ST"));
         builder.addRDN(RFC4519Style.c, certDN.get("C"));
+
+        // Generate PQC keypair
+        McElieceKeyGenerationParameters pqcparams = new McElieceKeyGenerationParameters(rand,new McElieceParameters());
+        McElieceKeyPairGenerator pqcgen = new McElieceKeyPairGenerator();
+        pqcgen.init(pqcparams);
+        AsymmetricCipherKeyPair pqckeys = pqcgen.generateKeyPair();
+        AsymmetricKeyParameter pqcprivkey = pqckeys.getPrivate();
+        try {
+            PrivateKeyInfo pqcprivkeyinfo = PrivateKeyInfoFactory.createPrivateKeyInfo(pqcprivkey);
+        } catch (Exception e)
+        {
+            log.info(e.getMessage());
+        }
 
         AlgorithmIdentifier sigAlg = sigAlgFinder.find("SHA256WithRSAEncryption");
         try{
