@@ -91,9 +91,16 @@ import org.bouncycastle.operator.bc.BcRSAContentVerifierProviderBuilder;
 import org.bouncycastle.pqc.crypto.rainbow.RainbowKeyGenerationParameters;
 import org.bouncycastle.pqc.crypto.rainbow.RainbowKeyPairGenerator;
 import org.bouncycastle.pqc.crypto.rainbow.RainbowParameters;
+import org.bouncycastle.pqc.crypto.lms.HSSKeyGenerationParameters;
+import org.bouncycastle.pqc.crypto.lms.HSSKeyPairGenerator;
+import org.bouncycastle.pqc.crypto.lms.HSSPrivateKeyParameters;
+import org.bouncycastle.pqc.crypto.lms.LMOtsParameters;
+import org.bouncycastle.pqc.crypto.lms.LMSParameters;
+import org.bouncycastle.pqc.crypto.lms.LMSigParameters;
 import org.bouncycastle.pqc.crypto.mceliece.McElieceKeyGenerationParameters;
 import org.bouncycastle.pqc.crypto.mceliece.McElieceKeyPairGenerator;
 import org.bouncycastle.pqc.crypto.mceliece.McElieceParameters;
+import org.bouncycastle.pqc.crypto.mceliece.McEliecePrivateKeyParameters;
 import org.bouncycastle.util.Strings;
 import org.bouncycastle.util.encoders.Base64;
 import org.bouncycastle.util.encoders.Hex;
@@ -200,21 +207,21 @@ public class Democertificate {
         builder.addRDN(RFC4519Style.st, certDN.get("ST"));
         builder.addRDN(RFC4519Style.c, certDN.get("C"));
 
-        // Generate PQC keypair
-        McElieceKeyGenerationParameters pqcparams = new McElieceKeyGenerationParameters(rand,new McElieceParameters());
-        McElieceKeyPairGenerator pqcgen = new McElieceKeyPairGenerator();
+        // Generate PQC keypair from
+        // The Viability of Post-Quantum X.509 Certificates Panos Kampanakis, Peter Panburana, Ellie Daw1 and Daniel Van Geest2
+
+        LMSParameters lparams = new LMSParameters(LMSigParameters.lms_sha256_n32_h10,LMOtsParameters.sha256_n32_w1);
+        LMSParameters[] lmsParameters = {lparams};
+        HSSKeyGenerationParameters pqcparams = new HSSKeyGenerationParameters(lmsParameters,rand);
+        HSSKeyPairGenerator pqcgen = new HSSKeyPairGenerator();
         pqcgen.init(pqcparams);
         AsymmetricCipherKeyPair pqckeys = pqcgen.generateKeyPair();
-        AsymmetricKeyParameter pqcprivkey = pqckeys.getPrivate();
-        try {
-            PrivateKeyInfo pqcprivkeyinfo = PrivateKeyInfoFactory.createPrivateKeyInfo(pqcprivkey);
-        } catch (Exception e)
-        {
-            log.info(e.getMessage());
-        }
+        HSSPrivateKeyParameters pqcprivkey = (HSSPrivateKeyParameters) pqckeys.getPrivate();
 
         AlgorithmIdentifier sigAlg = sigAlgFinder.find("SHA256WithRSAEncryption");
         try{
+            // Encode PQC key for embedding in cert along with signature
+            PrivateKeyInfo pqcprivkeyinfo = org.bouncycastle.pqc.crypto.util.PrivateKeyInfoFactory.createPrivateKeyInfo(pqcprivkey);
             ContentSigner sigGen = new BcRSAContentSignerBuilder(sigAlg, digAlgFinder.find(sigAlg)).build(this.privkey);
             X509v3CertificateBuilder certGen = new BcX509v3CertificateBuilder(builder.build(), BigInteger.valueOf(1), new Date(System.currentTimeMillis() - 50000), new Date(System.currentTimeMillis() + 50000),builder.build(), this.pubkey);
 
@@ -234,6 +241,13 @@ public class Democertificate {
             pemWriter.flush();
             this.certPrivateKey = sw.toString();
             log.info(sw.toString());
+            sw.close();
+            sw = new StringWriter();
+            pemWriter = new JcaPEMWriter(sw);
+            pemWriter.writeObject(pqcprivkeyinfo);
+            pemWriter.flush();
+            log.info(sw.toString());
+            sw.close();
         
         } catch(Exception e)
         {
