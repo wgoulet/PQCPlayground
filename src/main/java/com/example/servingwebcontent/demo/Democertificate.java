@@ -94,6 +94,7 @@ import org.bouncycastle.pqc.crypto.rainbow.RainbowParameters;
 import org.bouncycastle.pqc.crypto.lms.HSSKeyGenerationParameters;
 import org.bouncycastle.pqc.crypto.lms.HSSKeyPairGenerator;
 import org.bouncycastle.pqc.crypto.lms.HSSPrivateKeyParameters;
+import org.bouncycastle.pqc.crypto.lms.HSSPublicKeyParameters;
 import org.bouncycastle.pqc.crypto.lms.LMOtsParameters;
 import org.bouncycastle.pqc.crypto.lms.LMSParameters;
 import org.bouncycastle.pqc.crypto.lms.LMSigParameters;
@@ -217,14 +218,20 @@ public class Democertificate {
         pqcgen.init(pqcparams);
         AsymmetricCipherKeyPair pqckeys = pqcgen.generateKeyPair();
         HSSPrivateKeyParameters pqcprivkey = (HSSPrivateKeyParameters) pqckeys.getPrivate();
+        HSSPublicKeyParameters pqcpubkey = (HSSPublicKeyParameters) pqckeys.getPublic();
 
         AlgorithmIdentifier sigAlg = sigAlgFinder.find("SHA256WithRSAEncryption");
         try{
             // Encode PQC key for embedding in cert along with signature
             PrivateKeyInfo pqcprivkeyinfo = org.bouncycastle.pqc.crypto.util.PrivateKeyInfoFactory.createPrivateKeyInfo(pqcprivkey);
+            SubjectPublicKeyInfo pqcpubkeyinfo = org.bouncycastle.pqc.crypto.util.SubjectPublicKeyInfoFactory.createSubjectPublicKeyInfo(pqcpubkey);
             ContentSigner sigGen = new BcRSAContentSignerBuilder(sigAlg, digAlgFinder.find(sigAlg)).build(this.privkey);
             X509v3CertificateBuilder certGen = new BcX509v3CertificateBuilder(builder.build(), BigInteger.valueOf(1), new Date(System.currentTimeMillis() - 50000), new Date(System.currentTimeMillis() + 50000),builder.build(), this.pubkey);
-
+            // Using the OID for Alt signature algorithm as seen here: http://test-pqpki.com/
+            // The OID was found here: http://oid-info.com/get/2.5.29.72 but is not recognized by
+            // BouncyCastle; only patched versions of OpenSSL will understand this extension.
+            ASN1ObjectIdentifier oid = new ASN1ObjectIdentifier("2.5.29.72");
+            certGen.addExtension(oid, false, pqcpubkeyinfo.toASN1Primitive());
             X509CertificateHolder certH = certGen.build(sigGen);
             X509Certificate cert = new JcaX509CertificateConverter().getCertificate(certH);
             StringWriter sw = new StringWriter();
