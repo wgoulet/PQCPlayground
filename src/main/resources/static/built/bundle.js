@@ -34371,10 +34371,24 @@ var DemoCertificate = /*#__PURE__*/function (_React$Component3) {
 
     _this8 = _super3.call(this, props);
     _this8.handleDelete = _this8.handleDelete.bind(_assertThisInitialized(_this8));
+    _this8.handleDownloadCert = _this8.handleDownloadCert.bind(_assertThisInitialized(_this8));
     return _this8;
   }
 
   _createClass(DemoCertificate, [{
+    key: "handleDownloadCert",
+    value: function handleDownloadCert() {
+      var certdata = [this.props.democertificate.certASN1];
+      var blob = new Blob(certdata, {
+        type: "application/pkix-cert"
+      });
+      var url = window.URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = this.props.democertificate.certName + ".crt";
+      a.click();
+    }
+  }, {
     key: "handleDelete",
     value: function handleDelete() {
       this.props.onDelete(this.props.democertificate);
@@ -34382,7 +34396,9 @@ var DemoCertificate = /*#__PURE__*/function (_React$Component3) {
   }, {
     key: "render",
     value: function render() {
-      return /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certName), /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certSubjectDN), /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certASN1), /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certPrivateKey), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
+      return /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certName), /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certSubjectDN), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
+        onClick: this.handleDownloadCert
+      }, "Download Certificate")), /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certPrivateKey), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
         onClick: this.handleDelete
       }, "Delete")));
     }

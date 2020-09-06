@@ -27,6 +27,7 @@ import org.bouncycastle.asn1.oiw.OIWObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.asn1.pkcs.RSAPrivateKey;
+import org.bouncycastle.asn1.util.ASN1Dump;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.X500NameBuilder;
 import org.bouncycastle.asn1.x500.style.RFC4519Style;
@@ -91,6 +92,9 @@ import org.bouncycastle.operator.bc.BcRSAContentVerifierProviderBuilder;
 import org.bouncycastle.pqc.crypto.rainbow.RainbowKeyGenerationParameters;
 import org.bouncycastle.pqc.crypto.rainbow.RainbowKeyPairGenerator;
 import org.bouncycastle.pqc.crypto.rainbow.RainbowParameters;
+import org.bouncycastle.pqc.jcajce.provider.mceliece.BCMcElieceCCA2PrivateKey;
+import org.bouncycastle.pqc.jcajce.provider.mceliece.BCMcElieceCCA2PublicKey;
+import org.bouncycastle.pqc.asn1.PQCObjectIdentifiers;
 import org.bouncycastle.pqc.crypto.lms.HSSKeyGenerationParameters;
 import org.bouncycastle.pqc.crypto.lms.HSSKeyPairGenerator;
 import org.bouncycastle.pqc.crypto.lms.HSSPrivateKeyParameters;
@@ -98,10 +102,17 @@ import org.bouncycastle.pqc.crypto.lms.HSSPublicKeyParameters;
 import org.bouncycastle.pqc.crypto.lms.LMOtsParameters;
 import org.bouncycastle.pqc.crypto.lms.LMSParameters;
 import org.bouncycastle.pqc.crypto.lms.LMSigParameters;
+import org.bouncycastle.pqc.crypto.mceliece.McElieceCCA2KeyGenerationParameters;
+import org.bouncycastle.pqc.crypto.mceliece.McElieceCCA2KeyPairGenerator;
+import org.bouncycastle.pqc.crypto.mceliece.McElieceCCA2KeyParameters;
+import org.bouncycastle.pqc.crypto.mceliece.McElieceCCA2Parameters;
+import org.bouncycastle.pqc.crypto.mceliece.McElieceCCA2PrivateKeyParameters;
+import org.bouncycastle.pqc.crypto.mceliece.McElieceCCA2PublicKeyParameters;
 import org.bouncycastle.pqc.crypto.mceliece.McElieceKeyGenerationParameters;
 import org.bouncycastle.pqc.crypto.mceliece.McElieceKeyPairGenerator;
 import org.bouncycastle.pqc.crypto.mceliece.McElieceParameters;
 import org.bouncycastle.pqc.crypto.mceliece.McEliecePrivateKeyParameters;
+import org.bouncycastle.pqc.crypto.mceliece.McEliecePublicKeyParameters;
 import org.bouncycastle.util.Strings;
 import org.bouncycastle.util.encoders.Base64;
 import org.bouncycastle.util.encoders.Hex;
@@ -115,15 +126,15 @@ public class Democertificate {
     private static Log log = LogFactory.getLog(Democertificate.class);
     private String certName;
     private String certSubjectDN;
-    @Column (length = 10000)
+    @Column(length = 500000)
     private String certASN1;
-    @Column (length = 10000)
+    @Column(length = 500000)
     private String certPrivateKey;
     transient private AsymmetricKeyParameter pubkey;
     transient private AsymmetricKeyParameter privkey;
 
     public Democertificate() {
-       
+
     }
 
     public Democertificate(String certName, String certSubjectDN) {
@@ -189,7 +200,7 @@ public class Democertificate {
 
     @PrePersist
     public void generateCertASN() {
-         // https://github.com/bcgit/bc-java/blob/eb4b535f39048c6b0e2c9c14fd18b376453a63eb/pkix/src/test/java/org/bouncycastle/cert/test/BcCertTest.java#L525
+        // https://github.com/bcgit/bc-java/blob/eb4b535f39048c6b0e2c9c14fd18b376453a63eb/pkix/src/test/java/org/bouncycastle/cert/test/BcCertTest.java#L525
         SecureRandom rand = new SecureRandom();
         RSAKeyGenerationParameters params = new RSAKeyGenerationParameters(BigInteger.valueOf(0x1001), rand, 2048, 25);
         RSAKeyPairGenerator rkpg = new RSAKeyPairGenerator();
@@ -199,8 +210,8 @@ public class Democertificate {
         privkey = keypair.getPrivate();
         DefaultSignatureAlgorithmIdentifierFinder sigAlgFinder = new DefaultSignatureAlgorithmIdentifierFinder();
         DefaultDigestAlgorithmIdentifierFinder digAlgFinder = new DefaultDigestAlgorithmIdentifierFinder();
-        HashMap<String,String> certDN = Utilities.parseCertSubjectDN(this.certSubjectDN);
-        log.info(String.format("About to persist data %s",this.certSubjectDN));
+        HashMap<String, String> certDN = Utilities.parseCertSubjectDN(this.certSubjectDN);
+        log.info(String.format("About to persist data %s", this.certSubjectDN));
         X500NameBuilder builder = new X500NameBuilder(RFC4519Style.INSTANCE);
         builder.addRDN(RFC4519Style.cn, certDN.get("CN"));
         builder.addRDN(RFC4519Style.o, certDN.get("O"));
@@ -209,37 +220,35 @@ public class Democertificate {
         builder.addRDN(RFC4519Style.c, certDN.get("C"));
 
         // Generate PQC keypair from
-        // The Viability of Post-Quantum X.509 Certificates Panos Kampanakis, Peter Panburana, Ellie Daw1 and Daniel Van Geest2
-
-        LMSParameters lparams = new LMSParameters(LMSigParameters.lms_sha256_n32_h10,LMOtsParameters.sha256_n32_w1);
-        LMSParameters[] lmsParameters = {lparams};
-        HSSKeyGenerationParameters pqcparams = new HSSKeyGenerationParameters(lmsParameters,rand);
-        HSSKeyPairGenerator pqcgen = new HSSKeyPairGenerator();
-        pqcgen.init(pqcparams);
+        // The Viability of Post-Quantum X.509 Certificates Panos Kampanakis, Peter
+        // Panburana, Ellie Daw1 and Daniel Van Geest2
+        McElieceCCA2Parameters cc2params = new McElieceCCA2Parameters();
+        McElieceCCA2KeyGenerationParameters mcparams = new McElieceCCA2KeyGenerationParameters(rand, cc2params);
+        McElieceCCA2KeyPairGenerator pqcgen = new McElieceCCA2KeyPairGenerator();
+        pqcgen.init(mcparams);
         AsymmetricCipherKeyPair pqckeys = pqcgen.generateKeyPair();
-        HSSPrivateKeyParameters pqcprivkey = (HSSPrivateKeyParameters) pqckeys.getPrivate();
-        HSSPublicKeyParameters pqcpubkey = (HSSPublicKeyParameters) pqckeys.getPublic();
+        McElieceCCA2PrivateKeyParameters pqcprivkey = (McElieceCCA2PrivateKeyParameters) pqckeys.getPrivate();
+        McElieceCCA2PublicKeyParameters pqcpubkey = (McElieceCCA2PublicKeyParameters) pqckeys.getPublic();
+        BCMcElieceCCA2PrivateKey bprivkey = new BCMcElieceCCA2PrivateKey(pqcprivkey);
+        BCMcElieceCCA2PublicKey bpubkey = new BCMcElieceCCA2PublicKey(pqcpubkey);
 
         AlgorithmIdentifier sigAlg = sigAlgFinder.find("SHA256WithRSAEncryption");
         try{
-            // Encode PQC key for embedding in cert along with signature
-            PrivateKeyInfo pqcprivkeyinfo = org.bouncycastle.pqc.crypto.util.PrivateKeyInfoFactory.createPrivateKeyInfo(pqcprivkey);
-            SubjectPublicKeyInfo pqcpubkeyinfo = org.bouncycastle.pqc.crypto.util.SubjectPublicKeyInfoFactory.createSubjectPublicKeyInfo(pqcpubkey);
             ContentSigner sigGen = new BcRSAContentSignerBuilder(sigAlg, digAlgFinder.find(sigAlg)).build(this.privkey);
             X509v3CertificateBuilder certGen = new BcX509v3CertificateBuilder(builder.build(), BigInteger.valueOf(1), new Date(System.currentTimeMillis() - 50000), new Date(System.currentTimeMillis() + 50000),builder.build(), this.pubkey);
-            // Using the OID for Alt signature algorithm as seen here: http://test-pqpki.com/
-            // The OID was found here: http://oid-info.com/get/2.5.29.72 but is not recognized by
-            // BouncyCastle; only patched versions of OpenSSL will understand this extension.
-            ASN1ObjectIdentifier oid = new ASN1ObjectIdentifier("2.5.29.72");
-            certGen.addExtension(oid, false, pqcpubkeyinfo.toASN1Primitive());
+            // Encode PQC key for embedding in cert along with signature
+            certGen.addExtension(PQCObjectIdentifiers.mcElieceCca2, false, bpubkey.getEncoded());
             X509CertificateHolder certH = certGen.build(sigGen);
             X509Certificate cert = new JcaX509CertificateConverter().getCertificate(certH);
+            log.info(ASN1Dump.dumpAsString(cert));
             StringWriter sw = new StringWriter();
             JcaPEMWriter pemWriter = new JcaPEMWriter(sw);
             pemWriter.writeObject(cert);
             pemWriter.flush();
+            //this.certASN1 = ASN1Dump.dumpAsString(cert);
+            //this.certASN1 = "debug";
             this.certASN1 = sw.toString();
-            log.info(sw.toString());
+            //log.info(sw.toString());
             PrivateKeyInfo privkeyinfo = PrivateKeyInfoFactory.createPrivateKeyInfo(privkey);
             sw.close();
             sw = new StringWriter();
@@ -249,13 +258,6 @@ public class Democertificate {
             this.certPrivateKey = sw.toString();
             log.info(sw.toString());
             sw.close();
-            sw = new StringWriter();
-            pemWriter = new JcaPEMWriter(sw);
-            pemWriter.writeObject(pqcprivkeyinfo);
-            pemWriter.flush();
-            log.info(sw.toString());
-            sw.close();
-        
         } catch(Exception e)
         {
             log.info("Got exception" + e.getMessage());

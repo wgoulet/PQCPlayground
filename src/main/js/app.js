@@ -183,6 +183,17 @@ class DemoCertificate extends React.Component{
     constructor(props) {
         super(props);
         this.handleDelete = this.handleDelete.bind(this);
+        this.handleDownloadCert = this.handleDownloadCert.bind(this); 
+    }
+
+    handleDownloadCert() {
+        var certdata = [this.props.democertificate.certASN1];
+        var blob = new Blob(certdata,{type:"application/pkix-cert"});
+        let url = window.URL.createObjectURL(blob);
+        let a = document.createElement('a');
+        a.href = url;
+        a.download = this.props.democertificate.certName + ".crt";
+        a.click();
     }
 
     handleDelete() {
@@ -193,7 +204,9 @@ class DemoCertificate extends React.Component{
             <tr>
                 <td>{this.props.democertificate.certName}</td>
                 <td>{this.props.democertificate.certSubjectDN}</td>
-                <td>{this.props.democertificate.certASN1}</td>
+                <td>
+                    <button onClick={this.handleDownloadCert}>Download Certificate</button>
+                </td>
                 <td>{this.props.democertificate.certPrivateKey}</td>
                 <td>
                     <button onClick={this.handleDelete}>Delete</button>
