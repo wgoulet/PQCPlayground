@@ -167,6 +167,7 @@ class DemoCertificateList extends React.Component{
                             <th>Certificate SubjectDN</th>
                             <th>Signed Certificate</th>
                             <th>Private Key</th>
+                            <th>PQC Private Key</th>
                         </tr>
                         {democertificates}
                     </tbody>
@@ -183,7 +184,8 @@ class DemoCertificate extends React.Component{
     constructor(props) {
         super(props);
         this.handleDelete = this.handleDelete.bind(this);
-        this.handleDownloadCert = this.handleDownloadCert.bind(this); 
+        this.handleDownloadCert = this.handleDownloadCert.bind(this);
+        this.handleDownloadPqcPrivateKey = this.handleDownloadPqcPrivateKey.bind(this); 
     }
 
     handleDownloadCert() {
@@ -193,6 +195,16 @@ class DemoCertificate extends React.Component{
         let a = document.createElement('a');
         a.href = url;
         a.download = this.props.democertificate.certName + ".crt";
+        a.click();
+    }
+
+    handleDownloadPqcPrivateKey() {
+        var certdata = [this.props.democertificate.certPqcPrivateKey];
+        var blob = new Blob(certdata,{type:"application/pkcs8"});
+        let url = window.URL.createObjectURL(blob);
+        let a = document.createElement('a');
+        a.href = url;
+        a.download = this.props.democertificate.certName + ".pqckey";
         a.click();
     }
 
@@ -208,6 +220,9 @@ class DemoCertificate extends React.Component{
                     <button onClick={this.handleDownloadCert}>Download Certificate</button>
                 </td>
                 <td>{this.props.democertificate.certPrivateKey}</td>
+                <td>
+                    <button onClick={this.handleDownloadPqcPrivateKey}>Download PQC Private Key</button>
+                </td>
                 <td>
                     <button onClick={this.handleDelete}>Delete</button>
                 </td>

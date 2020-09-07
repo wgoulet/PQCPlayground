@@ -34352,7 +34352,7 @@ var DemoCertificateList = /*#__PURE__*/function (_React$Component2) {
         ref: "pageSize",
         defaultValue: this.props.pageSize,
         onInput: this.handleInput
-      }), /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Certificate Name"), /*#__PURE__*/React.createElement("th", null, "Certificate SubjectDN"), /*#__PURE__*/React.createElement("th", null, "Signed Certificate"), /*#__PURE__*/React.createElement("th", null, "Private Key")), democertificates)), /*#__PURE__*/React.createElement("div", null, navLinks));
+      }), /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Certificate Name"), /*#__PURE__*/React.createElement("th", null, "Certificate SubjectDN"), /*#__PURE__*/React.createElement("th", null, "Signed Certificate"), /*#__PURE__*/React.createElement("th", null, "Private Key"), /*#__PURE__*/React.createElement("th", null, "PQC Private Key")), democertificates)), /*#__PURE__*/React.createElement("div", null, navLinks));
     }
   }]);
 
@@ -34372,6 +34372,7 @@ var DemoCertificate = /*#__PURE__*/function (_React$Component3) {
     _this8 = _super3.call(this, props);
     _this8.handleDelete = _this8.handleDelete.bind(_assertThisInitialized(_this8));
     _this8.handleDownloadCert = _this8.handleDownloadCert.bind(_assertThisInitialized(_this8));
+    _this8.handleDownloadPqcPrivateKey = _this8.handleDownloadPqcPrivateKey.bind(_assertThisInitialized(_this8));
     return _this8;
   }
 
@@ -34389,6 +34390,19 @@ var DemoCertificate = /*#__PURE__*/function (_React$Component3) {
       a.click();
     }
   }, {
+    key: "handleDownloadPqcPrivateKey",
+    value: function handleDownloadPqcPrivateKey() {
+      var certdata = [this.props.democertificate.certPqcPrivateKey];
+      var blob = new Blob(certdata, {
+        type: "application/pkcs8"
+      });
+      var url = window.URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = this.props.democertificate.certName + ".pqckey";
+      a.click();
+    }
+  }, {
     key: "handleDelete",
     value: function handleDelete() {
       this.props.onDelete(this.props.democertificate);
@@ -34399,6 +34413,8 @@ var DemoCertificate = /*#__PURE__*/function (_React$Component3) {
       return /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certName), /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certSubjectDN), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
         onClick: this.handleDownloadCert
       }, "Download Certificate")), /*#__PURE__*/React.createElement("td", null, this.props.democertificate.certPrivateKey), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
+        onClick: this.handleDownloadPqcPrivateKey
+      }, "Download PQC Private Key")), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
         onClick: this.handleDelete
       }, "Delete")));
     }

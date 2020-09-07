@@ -2,8 +2,10 @@ package com.example.servingwebcontent.demo;
 
 import java.security.KeyPair;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Objects;
 import java.io.StringWriter;
 import java.math.BigInteger;
@@ -60,6 +62,7 @@ import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
 import org.bouncycastle.crypto.AsymmetricCipherKeyPairGenerator;
 import org.bouncycastle.crypto.KeyGenerationParameters;
+import org.bouncycastle.crypto.digests.SHA512Digest;
 import org.bouncycastle.crypto.generators.DSAKeyPairGenerator;
 import org.bouncycastle.crypto.generators.DSAParametersGenerator;
 import org.bouncycastle.crypto.generators.RSAKeyPairGenerator;
@@ -91,10 +94,18 @@ import org.bouncycastle.operator.bc.BcRSAContentSignerBuilder;
 import org.bouncycastle.operator.bc.BcRSAContentVerifierProviderBuilder;
 import org.bouncycastle.pqc.crypto.rainbow.RainbowKeyGenerationParameters;
 import org.bouncycastle.pqc.crypto.rainbow.RainbowKeyPairGenerator;
+import org.bouncycastle.pqc.crypto.rainbow.RainbowKeyParameters;
 import org.bouncycastle.pqc.crypto.rainbow.RainbowParameters;
+import org.bouncycastle.pqc.crypto.rainbow.RainbowPrivateKeyParameters;
+import org.bouncycastle.pqc.crypto.rainbow.RainbowPublicKeyParameters;
+import org.bouncycastle.pqc.crypto.rainbow.RainbowSigner;
 import org.bouncycastle.pqc.jcajce.provider.mceliece.BCMcElieceCCA2PrivateKey;
 import org.bouncycastle.pqc.jcajce.provider.mceliece.BCMcElieceCCA2PublicKey;
+import org.bouncycastle.pqc.jcajce.provider.rainbow.BCRainbowPrivateKey;
+import org.bouncycastle.pqc.jcajce.provider.rainbow.BCRainbowPublicKey;
+import org.bouncycastle.pqc.jcajce.provider.rainbow.SignatureSpi.withSha512;
 import org.bouncycastle.pqc.asn1.PQCObjectIdentifiers;
+import org.bouncycastle.pqc.asn1.RainbowPrivateKey;
 import org.bouncycastle.pqc.crypto.lms.HSSKeyGenerationParameters;
 import org.bouncycastle.pqc.crypto.lms.HSSKeyPairGenerator;
 import org.bouncycastle.pqc.crypto.lms.HSSPrivateKeyParameters;
@@ -115,7 +126,9 @@ import org.bouncycastle.pqc.crypto.mceliece.McEliecePrivateKeyParameters;
 import org.bouncycastle.pqc.crypto.mceliece.McEliecePublicKeyParameters;
 import org.bouncycastle.util.Strings;
 import org.bouncycastle.util.encoders.Base64;
+import org.bouncycastle.util.encoders.Base64Encoder;
 import org.bouncycastle.util.encoders.Hex;
+import org.bouncycastle.util.io.pem.PemHeader;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.bouncycastle.util.io.pem.PemWriter;
 import org.springframework.data.annotation.Transient;
@@ -130,6 +143,8 @@ public class Democertificate {
     private String certASN1;
     @Column(length = 500000)
     private String certPrivateKey;
+    @Column(length = 500000)
+    private String certPqcPrivateKey;
     transient private AsymmetricKeyParameter pubkey;
     transient private AsymmetricKeyParameter privkey;
 
@@ -198,6 +213,14 @@ public class Democertificate {
         return this.certPrivateKey;
     }
 
+    public void setCertPqcPrivateKey(String privateKey) {
+        this.certPqcPrivateKey = privateKey;
+    }
+
+    public String getCertPqcPrivateKey() {
+        return this.certPqcPrivateKey;
+    }
+
     @PrePersist
     public void generateCertASN() {
         // https://github.com/bcgit/bc-java/blob/eb4b535f39048c6b0e2c9c14fd18b376453a63eb/pkix/src/test/java/org/bouncycastle/cert/test/BcCertTest.java#L525
@@ -222,33 +245,46 @@ public class Democertificate {
         // Generate PQC keypair from
         // The Viability of Post-Quantum X.509 Certificates Panos Kampanakis, Peter
         // Panburana, Ellie Daw1 and Daniel Van Geest2
-        McElieceCCA2Parameters cc2params = new McElieceCCA2Parameters();
-        McElieceCCA2KeyGenerationParameters mcparams = new McElieceCCA2KeyGenerationParameters(rand, cc2params);
-        McElieceCCA2KeyPairGenerator pqcgen = new McElieceCCA2KeyPairGenerator();
-        pqcgen.init(mcparams);
+
+        RainbowParameters rparams = new RainbowParameters();
+        RainbowKeyGenerationParameters rkeyparams = new RainbowKeyGenerationParameters(rand,rparams);
+        RainbowKeyPairGenerator pqcgen = new RainbowKeyPairGenerator();
+        pqcgen.init(rkeyparams);
         AsymmetricCipherKeyPair pqckeys = pqcgen.generateKeyPair();
-        McElieceCCA2PrivateKeyParameters pqcprivkey = (McElieceCCA2PrivateKeyParameters) pqckeys.getPrivate();
-        McElieceCCA2PublicKeyParameters pqcpubkey = (McElieceCCA2PublicKeyParameters) pqckeys.getPublic();
-        BCMcElieceCCA2PrivateKey bprivkey = new BCMcElieceCCA2PrivateKey(pqcprivkey);
-        BCMcElieceCCA2PublicKey bpubkey = new BCMcElieceCCA2PublicKey(pqcpubkey);
+        RainbowPrivateKeyParameters pqcprivkey = (RainbowPrivateKeyParameters) pqckeys.getPrivate();
+        RainbowPublicKeyParameters pqcpubkey = (RainbowPublicKeyParameters) pqckeys.getPublic();
+        BCRainbowPublicKey bpubkey = new BCRainbowPublicKey(pqcpubkey);
 
         AlgorithmIdentifier sigAlg = sigAlgFinder.find("SHA256WithRSAEncryption");
         try{
             ContentSigner sigGen = new BcRSAContentSignerBuilder(sigAlg, digAlgFinder.find(sigAlg)).build(this.privkey);
             X509v3CertificateBuilder certGen = new BcX509v3CertificateBuilder(builder.build(), BigInteger.valueOf(1), new Date(System.currentTimeMillis() - 50000), new Date(System.currentTimeMillis() + 50000),builder.build(), this.pubkey);
             // Encode PQC key for embedding in cert along with signature
-            certGen.addExtension(PQCObjectIdentifiers.mcElieceCca2, false, bpubkey.getEncoded());
+            // Unsure if this extension is understood to contain the encoded public key
+            certGen.addExtension(PQCObjectIdentifiers.rainbow, false, bpubkey.getEncoded());
             X509CertificateHolder certH = certGen.build(sigGen);
             X509Certificate cert = new JcaX509CertificateConverter().getCertificate(certH);
+            // Generate a SHA256 hash of the certificate before passing it to the Rainbow signer
+            SHA512Digest sha512Digest = new SHA512Digest();
+            int len = cert.getEncoded().length;
+            sha512Digest.update(cert.getEncoded(),0,len);
+            byte[] digest = new byte[sha512Digest.getDigestSize()];
+            sha512Digest.doFinal(digest, 0);
+            // Sign the certificate with the pqc private key
+            RainbowSigner pqcsigner = new RainbowSigner();
+            pqcsigner.init(true,pqcprivkey);
+            byte[] pqcsig = pqcsigner.generateSignature(digest);
+            // Add the signature to the certificate
+            certGen.addExtension(PQCObjectIdentifiers.rainbowWithSha512, false, pqcsig);
+            certH = certGen.build(sigGen);
+            cert = new JcaX509CertificateConverter().getCertificate(certH);
             log.info(ASN1Dump.dumpAsString(cert));
             StringWriter sw = new StringWriter();
             JcaPEMWriter pemWriter = new JcaPEMWriter(sw);
             pemWriter.writeObject(cert);
             pemWriter.flush();
-            //this.certASN1 = ASN1Dump.dumpAsString(cert);
-            //this.certASN1 = "debug";
             this.certASN1 = sw.toString();
-            //log.info(sw.toString());
+            log.info(this.certASN1);
             PrivateKeyInfo privkeyinfo = PrivateKeyInfoFactory.createPrivateKeyInfo(privkey);
             sw.close();
             sw = new StringWriter();
@@ -257,6 +293,19 @@ public class Democertificate {
             pemWriter.flush();
             this.certPrivateKey = sw.toString();
             log.info(sw.toString());
+            sw.close();
+            // Save the PQC private key
+            RainbowPrivateKey pqcprivkeyinfo = new RainbowPrivateKey(pqcprivkey.getInvA1(),pqcprivkey.getB1(),
+                pqcprivkey.getInvA2(),pqcprivkey.getB2(),pqcprivkey.getVi(),pqcprivkey.getLayers());
+            sw = new StringWriter();
+            PemHeader pqcpkeyHeader = new PemHeader("PQC Key Type","RAINBOW");
+            List<PemHeader> headers = new ArrayList<PemHeader>();
+            headers.add(pqcpkeyHeader);
+            PemObject peminfo = new PemObject("PQC Private Key",headers,pqcprivkeyinfo.getEncoded("DER"));
+            PemWriter pqcpemWriter = new PemWriter(sw);
+            pqcpemWriter.writeObject(peminfo);
+            pqcpemWriter.flush();
+            this.certPqcPrivateKey = sw.toString();
             sw.close();
         } catch(Exception e)
         {
