@@ -3,6 +3,7 @@ package com.example.servingwebcontent.demo;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.text.ParseException;
 import java.util.ArrayList;
@@ -410,7 +411,8 @@ public class PQX509v3CertificateBuilder {
      * @param pqcsigner
      * @return a holder containing the resulting signed certificate.
      */
-    public X509CertificateHolder build(ContentSigner signer, RainbowSigner pqcsigner, RainbowPrivateKeyParameters pqcprivatekey) {
+    public X509CertificateHolder build(ContentSigner signer, RainbowSigner pqcsigner,
+            RainbowPrivateKeyParameters pqcprivatekey) {
         tbsGen.setSignature(signer.getAlgorithmIdentifier());
 
         if (!extGenerator.isEmpty()) {
@@ -420,25 +422,29 @@ public class PQX509v3CertificateBuilder {
         try {
             TBSCertificate tbsCert = tbsGen.generateTBSCertificate();
             return new X509CertificateHolder(generateStructure(tbsCert, signer.getAlgorithmIdentifier(),
-                    generateSig(signer, tbsCert), generatePQSig(pqcsigner, tbsCert,pqcprivatekey)));
+                    generateSig(signer, tbsCert), generatePQSig(pqcsigner, tbsCert, pqcprivatekey)));
         } catch (IOException e) {
             throw new IllegalArgumentException("cannot produce certificate signature");
         }
     }
 
-    private static byte[] generatePQSig(RainbowSigner pqcsigner, ASN1Object tbsObj,RainbowPrivateKeyParameters pqcprivkey) throws IOException {
+    private static byte[] generatePQSig(RainbowSigner pqcsigner, ASN1Object tbsObj,
+            RainbowPrivateKeyParameters pqcprivkey) throws IOException {
         ByteArrayOutputStream sOut = new ByteArrayOutputStream();
-        tbsObj.encodeTo(sOut,ASN1Encoding.DER);
-        // This is where I am lost; looking at RainbowSigner I can't figure out how the message is 
-        // hashed before signing when using the method directly (there is no method to choose which hash algorithm is
-        // to be used by RainbowSigner. Until I get that figured out, I'll hash the message before I pass it over to the
+        tbsObj.encodeTo(sOut, ASN1Encoding.DER);
+        // This is where I am lost; looking at RainbowSigner I can't figure out how the
+        // message is
+        // hashed before signing when using the method directly (there is no method to
+        // choose which hash algorithm is
+        // to be used by RainbowSigner. Until I get that figured out, I'll hash the
+        // message before I pass it over to the
         // signer).
         SHA512Digest sha512Digest = new SHA512Digest();
-        sha512Digest.update(sOut.toByteArray(),0,sOut.toByteArray().length);
+        sha512Digest.update(sOut.toByteArray(), 0, sOut.toByteArray().length);
         byte[] digest = new byte[sha512Digest.getDigestSize()];
         sha512Digest.doFinal(digest, 0);
         // Sign the certificate with the pqc private key
-        pqcsigner.init(true,pqcprivkey);
+        pqcsigner.init(true, pqcprivkey);
         byte[] pqcsig = pqcsigner.generateSignature(digest);
         return pqcsig;
     }
@@ -451,16 +457,28 @@ public class PQX509v3CertificateBuilder {
         return signer.getSignature();
     }
 
-    private static Certificate generateStructure(TBSCertificate tbsCert, AlgorithmIdentifier sigAlgId,
-            byte[] signature, byte[] pqcsignature) {
+    private static Certificate generateStructure(TBSCertificate tbsCert, AlgorithmIdentifier sigAlgId, byte[] signature,
+            byte[] pqcsignature) throws UnsupportedEncodingException {
         ASN1EncodableVector v = new ASN1EncodableVector();
 
         v.add(tbsCert);
         v.add(sigAlgId);
-        v.add(new DERBitString(signature));
-        v.add(ISOIECObjectIdentifiers.id_kem_rsa);
-        v.add(new DERBitString(pqcsignature));
-
+        // Bouncycastle ASN1 certificate encoder implements a check to ensure that the sequence in the
+        // vector to encode only has 3 elements, the cert itself, the signature algorithm identifier and
+        // the signature. So to embed the PQC signature, we can either a) add it as an extension to the
+        // tbsCert itself (which would make the cert work for legacy systems that can't parse the extension
+        // to get the PQC signature, well known method that was drafted in IETF) or we can combine both
+        // signatures in the signature block, which will be unparseable by clients that aren't updated
+        // to understand the new signature. Let's experiment!
+        ByteArrayOutputStream hybridSig = new ByteArrayOutputStream();
+        hybridSig.write(signature, 0, signature.length);
+        // Add a delimeter sequence between the signatures
+        String delim = "hybriddelim";
+        byte[] delimb = delim.getBytes("UTF-8");
+        hybridSig.write(delimb,0,delimb.length);
+        hybridSig.write(pqcsignature,0, pqcsignature.length);
+        v.add(new DERBitString(hybridSig.toByteArray()));
+        
         return Certificate.getInstance(new DERSequence(v));
     }
 
