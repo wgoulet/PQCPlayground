@@ -25,6 +25,7 @@ import org.bouncycastle.asn1.ASN1Object;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.asn1.DERSequence;
+import org.bouncycastle.asn1.iso.ISOIECObjectIdentifiers;
 import org.bouncycastle.asn1.oiw.OIWObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
@@ -62,6 +63,7 @@ import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
 import org.bouncycastle.crypto.AsymmetricCipherKeyPairGenerator;
 import org.bouncycastle.crypto.KeyGenerationParameters;
+import org.bouncycastle.crypto.digests.SHA256Digest;
 import org.bouncycastle.crypto.digests.SHA512Digest;
 import org.bouncycastle.crypto.generators.DSAKeyPairGenerator;
 import org.bouncycastle.crypto.generators.DSAParametersGenerator;
@@ -75,6 +77,7 @@ import org.bouncycastle.crypto.params.ECPublicKeyParameters;
 import org.bouncycastle.crypto.params.RSAKeyGenerationParameters;
 import org.bouncycastle.crypto.params.RSAKeyParameters;
 import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
+import org.bouncycastle.crypto.signers.RSADigestSigner;
 import org.bouncycastle.crypto.util.PrivateKeyInfoFactory;
 import org.bouncycastle.crypto.util.PublicKeyFactory;
 import org.bouncycastle.crypto.util.SubjectPublicKeyInfoFactory;
@@ -258,27 +261,54 @@ public class Democertificate {
         AlgorithmIdentifier sigAlg = sigAlgFinder.find("SHA256WithRSAEncryption");
         try{
             ContentSigner sigGen = new BcRSAContentSignerBuilder(sigAlg, digAlgFinder.find(sigAlg)).build(this.privkey);
-            X509v3CertificateBuilder certGen = new BcX509v3CertificateBuilder(builder.build(), BigInteger.valueOf(1), new Date(System.currentTimeMillis() - 50000), new Date(System.currentTimeMillis() + 50000),builder.build(), this.pubkey);
+            RainbowSigner pqcsigner = new RainbowSigner();
+            PQX509v3CertificateBuilder certGen = new PQX509v3CertificateBuilder(builder.build(), BigInteger.valueOf(1), new Date(System.currentTimeMillis() - 50000), new Date(System.currentTimeMillis() + 50000),builder.build(), this.pubkey,pqcpubkey);
             // Encode PQC key for embedding in cert along with signature
             // Unsure if this extension is understood to contain the encoded public key
             certGen.addExtension(PQCObjectIdentifiers.rainbow, false, bpubkey.getEncoded());
-            X509CertificateHolder certH = certGen.build(sigGen);
+            X509CertificateHolder certH = certGen.build(sigGen,pqcsigner,pqcprivkey);
             X509Certificate cert = new JcaX509CertificateConverter().getCertificate(certH);
-            // Generate a SHA256 hash of the certificate before passing it to the Rainbow signer
-            SHA512Digest sha512Digest = new SHA512Digest();
             int len = cert.getEncoded().length;
+            // Test out this flow with RSA; construct the signature using the same sequence of calls
+            // we'll be using with Rainbow
+            byte[] crsasig = cert.getSignature();
+            String crsasigstr = "";
+            for(byte c: crsasig)
+            {
+                byte[] ib = new byte[1];
+                ib[0] = c;
+                BigInteger bi = new BigInteger(1,ib);
+                crsasigstr = crsasigstr + ":" + bi.toString(16);
+            }
+            log.info(crsasigstr);
+            RSADigestSigner rsig = new RSADigestSigner(new SHA256Digest());
+            rsig.init(true, (RSAKeyParameters)privkey);
+            rsig.update(cert.getEncoded(),0,len);
+            byte[] rsasig = rsig.generateSignature();
+            String rsasigstr = "";
+            for(byte b : rsasig)
+            {
+                byte[] ib = new byte[1];
+                ib[0] = b;
+                BigInteger bi = new BigInteger(1,ib);
+                rsasigstr = rsasigstr + ":" + bi.toString(16);
+            }
+            log.info(rsasigstr);
+            /* certGen.addExtension(ISOIECObjectIdentifiers.id_kem_rsa, false, rsasig);
+             Generate a SHA256 hash of the certificate before passing it to the Rainbow signer
+            SHA512Digest sha512Digest = new SHA512Digest();
             sha512Digest.update(cert.getEncoded(),0,len);
             byte[] digest = new byte[sha512Digest.getDigestSize()];
             sha512Digest.doFinal(digest, 0);
             // Sign the certificate with the pqc private key
-            RainbowSigner pqcsigner = new RainbowSigner();
             pqcsigner.init(true,pqcprivkey);
             byte[] pqcsig = pqcsigner.generateSignature(digest);
             // Add the signature to the certificate
             certGen.addExtension(PQCObjectIdentifiers.rainbowWithSha512, false, pqcsig);
-            certH = certGen.build(sigGen);
+            certH = certGen.build(sigGen,pqcsigner,pqcprivkey);
             cert = new JcaX509CertificateConverter().getCertificate(certH);
             log.info(ASN1Dump.dumpAsString(cert));
+            */
             StringWriter sw = new StringWriter();
             JcaPEMWriter pemWriter = new JcaPEMWriter(sw);
             pemWriter.writeObject(cert);
